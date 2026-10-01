@@ -49,6 +49,13 @@ Every OCI reference is pinned by digest and updated by Renovate: the base image,
 `projectbluefin/common`, `ublue-os/brew`, `bootc-image-builder`, and the GitHub
 Actions. Do not hand-edit a digest; let Renovate propose it.
 
+Exception: the base image's Fedora major (`quay.io/fedora-ostree-desktops/silverblue:N`,
+`Containerfile:53`) is *not* updated by Renovate. The rule at
+`.github/renovate.json:48-52` disables major updates for that namespace; the
+intent is to make major rebases a deliberate manual step tied to a known-good
+validation. Bump the tag in `Containerfile` by hand when the next major is
+released and validated.
+
 The base image's `FROM` line is the only place the base is chosen, so the Fedora
 major cannot desync the way a hand-maintained `FEDORA_MAJOR_VERSION` ARG could.
 Two readers derive it from that base: `just build` parses the tag for the version
