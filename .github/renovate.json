@@ -46,6 +46,11 @@
       "automerge": true
     },
     {
+      "description": "Constrain quay.io/fedora-ostree-desktops/* to released Fedora majors. The repository tags every active branch, including `rawhide` and any branched/date-stamped snapshot tags, and Renovate does not distinguish released majors from rolling branches under the docker versioning. The negated regex keeps 44/45/46/... and drops anything carrying `rawhide`. Range syntax does not parse here (see the Ubuntu rule below), so this is the same disable-rather-than-filter trade.",
+      "matchDepNames": ["quay.io/fedora-ostree-desktops/*"],
+      "allowedVersions": "!/rawhide/"
+    },
+    {
       "description": "Third-party GitHub Actions execute in workflows holding packages:write and the cosign OIDC signing identity (build-image.yml), so their bumps always wait for a human — an automerged compromised release would run there unreviewed. First-party projectbluefin/** actions stay automerged.",
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["!projectbluefin/**"],
