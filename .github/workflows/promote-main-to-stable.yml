@@ -255,10 +255,12 @@ jobs:
   # nothing passes `e2e_image` to the reusable), so the smoke image is never
   # produced and the URL 404s. Strip the section here once `gate` has refreshed
   # the gate section, so the cosmetic noise does not survive into the PR an
-  # operator reads. Skipped on a no-op run that opened no PR, on a skipped
-  # gate (no need to edit before verification), and on a failed gate (the
-  # operator will scrutinise exactly those PRs the most). Idempotent on
-  # re-runs (no edit when the section is already absent).
+  # operator reads. Skipped on a no-op run that opened no PR or on a skipped
+  # gate (no need to edit before verification). Runs on a *failed* gate as
+  # well: a `needs` chain already serialises the jobs, so there is no race,
+  # and the operator who triages a failed-gate PR benefits from the same
+  # cleanup. Idempotent on re-runs (no edit when the section is already
+  # absent).
   #
   # Note: this also drops the merge-policy blockquote the reusable renders
   # inside `## Desktop Screenshot`. finpilot merges by hand rather than via
@@ -294,6 +296,14 @@ jobs:
             --repo "${{ github.repository }}" \
             --json body \
             --jq '.body' > "${orig_body}"
+
+          # GitHub normalises PR bodies edited through the web UI to CRLF.
+          # The reusable re-renders with LF on every run, so the section
+          # heading normally matches; bodies edited by hand would not.
+          # Strip the carriage returns so the heading match below works
+          # regardless of how the body was last edited (#466 review).
+          tr -d '\r' < "${orig_body}" > "${orig_body}.lf"
+          mv "${orig_body}.lf" "${orig_body}"
 
           # The section is emitted by render-pr-body/action.yml as a single
           # `## Desktop Screenshot` heading followed by a CAUTION/IMPORTANT
