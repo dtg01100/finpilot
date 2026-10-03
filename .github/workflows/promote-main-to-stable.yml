@@ -307,20 +307,27 @@ jobs:
 
           # The section is emitted by render-pr-body/action.yml as a single
           # `## Desktop Screenshot` heading followed by a CAUTION/IMPORTANT
-          # blockquote and a markdown image. There is no closing fence, so it
-          # runs to EOF; truncate at the heading line if it is present.
+          # blockquote and a markdown image. The 404 image is what makes
+          # the section useless to operators; the blockquote carries the
+          # merge-policy note ("merged by a human" / "do not auto-merge")
+          # that #467 makes correct upstream, so keep it (#466 review).
           if ! grep -q '^## Desktop Screenshot$' "${orig_body}"; then
             echo "::notice::PR #${PR_NUMBER} has no Desktop Screenshot section; nothing to strip."
             exit 0
           fi
 
-          # Keep everything strictly before the heading, then trim trailing
-          # blank lines so the body does not end with stray whitespace. The
-          # early `grep -q` check above guarantees this awk always drops at
-          # least the heading, so the outputs always differ and a `cmp -s`
-          # "no-op guard" would be dead code; rely on the early grep alone.
+          # Drop the heading line and the markdown image reference emitted by
+          # render-pr-body, then trim trailing blank lines so the body does
+          # not end with stray whitespace. The blockquote between them is
+          # preserved so the merge-policy note ("merged by a human" /
+          # "do not auto-merge") stays -- once #467 lands upstream, that
+          # note becomes the correct operator-facing text. A `cmp -s`
+          # "no-op guard" would be dead code: the early grep short-circuits
+          # when the section is absent, and the awk below always emits a
+          # body shorter than the input when it is present.
           awk '
-            /^## Desktop Screenshot$/ { exit }
+            /^## Desktop Screenshot$/ { skip_section = 1; next }
+            /^!\[.*\]\(.*\)$/ && skip_section { skip_section = 0; next }
             { lines[NR] = $0; total = NR }
             END {
               last = total
