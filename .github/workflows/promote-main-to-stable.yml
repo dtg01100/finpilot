@@ -248,3 +248,74 @@ jobs:
       # e2e is ever enabled for this image.
       run_e2e: false
     secrets: inherit
+
+  # The reusable renders a `## Desktop Screenshot` section into every promotion
+  # PR body, sourced from `${PRIMARY_IMAGE}-smoke-latest.png` on the testsuite
+  # pages site. finpilot does not run an e2e suite (`run_e2e: false` above, and
+  # nothing passes `e2e_image` to the reusable), so the smoke image is never
+  # produced and the URL 404s. Strip the section here once `gate` has refreshed
+  # the gate section, so the cosmetic noise does not survive into the PR an
+  # operator reads. Skipped on a no-op run that opened no PR, and idempotent on
+  # re-runs (no edit when the section is already absent).
+  strip-screenshot-section:
+    name: Drop the broken Desktop Screenshot section
+    needs: [locate-promotion-pr, gate]
+    if: needs.locate-promotion-pr.outputs.pr_number != '' && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ needs.locate-promotion-pr.outputs.pr_number }}
+    steps:
+      - name: Strip the Desktop Screenshot section from the promotion PR body
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Read the body the reusable rendered. gh's body field is a JSON
+          # string, so jq unwraps it to a file the next step can edit.
+          orig_body="$(mktemp)"
+          stripped_body="$(mktemp)"
+          trap 'rm -f "${orig_body}" "${stripped_body}"' EXIT
+
+          gh pr view "${PR_NUMBER}" \
+            --repo "${{ github.repository }}" \
+            --json body \
+            --jq '.body' > "${orig_body}"
+
+          # The section is emitted by render-pr-body/action.yml as a single
+          # `## Desktop Screenshot` heading followed by a CAUTION/IMPORTANT
+          # blockquote and a markdown image. There is no closing fence, so it
+          # runs to EOF; truncate at the heading line if it is present.
+          if ! grep -q '^## Desktop Screenshot$' "${orig_body}"; then
+            echo "::notice::PR #${PR_NUMBER} has no Desktop Screenshot section; nothing to strip."
+            exit 0
+          fi
+
+          # Keep everything strictly before the heading, then trim trailing
+          # blank lines so the body does not end with stray whitespace.
+          awk '
+            /^## Desktop Screenshot$/ { exit }
+            { lines[NR] = $0; total = NR }
+            END {
+              last = total
+              while (last > 0 && lines[last] == "") last--
+              for (i = 1; i <= last; i++) print lines[i]
+            }
+          ' "${orig_body}" > "${stripped_body}"
+
+          # No-op when the truncation did not actually remove anything (defence
+          # in depth against the section header appearing inside a code fence
+          # or other non-section context, which the `exit` above would miss).
+          if cmp -s "${orig_body}" "${stripped_body}"; then
+            echo "::notice::PR #${PR_NUMBER} body did not change after stripping; skipping edit."
+            exit 0
+          fi
+
+          gh pr edit "${PR_NUMBER}" \
+            --repo "${{ github.repository }}" \
+            --body-file "${stripped_body}"
+          echo "Stripped the Desktop Screenshot section from PR #${PR_NUMBER}."
