@@ -255,12 +255,21 @@ jobs:
   # nothing passes `e2e_image` to the reusable), so the smoke image is never
   # produced and the URL 404s. Strip the section here once `gate` has refreshed
   # the gate section, so the cosmetic noise does not survive into the PR an
-  # operator reads. Skipped on a no-op run that opened no PR, and idempotent on
+  # operator reads. Skipped on a no-op run that opened no PR, on a skipped
+  # gate (no need to edit before verification), and on a failed gate (the
+  # operator will scrutinise exactly those PRs the most). Idempotent on
   # re-runs (no edit when the section is already absent).
+  #
+  # Note: this also drops the merge-policy blockquote the reusable renders
+  # inside `## Desktop Screenshot`. finpilot merges by hand rather than via
+  # `enqueue_promotion` (a personal fork cannot use a merge queue), so the
+  # blockquote advertising auto-merge was wrong anyway; #467 pins
+  # `auto_merge: false` in the reusable's input so render-pr-body stops
+  # emitting the misleading text for this image.
   strip-screenshot-section:
     name: Drop the broken Desktop Screenshot section
     needs: [locate-promotion-pr, gate]
-    if: needs.locate-promotion-pr.outputs.pr_number != '' && needs.gate.result == 'success'
+    if: always() && needs.locate-promotion-pr.outputs.pr_number != '' && needs.gate.result != 'skipped'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -296,7 +305,10 @@ jobs:
           fi
 
           # Keep everything strictly before the heading, then trim trailing
-          # blank lines so the body does not end with stray whitespace.
+          # blank lines so the body does not end with stray whitespace. The
+          # early `grep -q` check above guarantees this awk always drops at
+          # least the heading, so the outputs always differ and a `cmp -s`
+          # "no-op guard" would be dead code; rely on the early grep alone.
           awk '
             /^## Desktop Screenshot$/ { exit }
             { lines[NR] = $0; total = NR }
@@ -306,14 +318,6 @@ jobs:
               for (i = 1; i <= last; i++) print lines[i]
             }
           ' "${orig_body}" > "${stripped_body}"
-
-          # No-op when the truncation did not actually remove anything (defence
-          # in depth against the section header appearing inside a code fence
-          # or other non-section context, which the `exit` above would miss).
-          if cmp -s "${orig_body}" "${stripped_body}"; then
-            echo "::notice::PR #${PR_NUMBER} body did not change after stripping; skipping edit."
-            exit 0
-          fi
 
           gh pr edit "${PR_NUMBER}" \
             --repo "${{ github.repository }}" \
