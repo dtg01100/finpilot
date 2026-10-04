@@ -33,10 +33,10 @@ config() {
 
 @test "renovate config defines a customManager that tracks quay.io/fedora-ostree-desktops/* in build example FROM comments" {
     # This is the manager that prevents the example FROM major from drifting
-    # when the Containerfile is rebased. Without it, the maintenance NOTE in
-    # build/60-desktop-swap.sh.example is the only thing keeping the example
-    # in step, and a contributor editing renovate.json cannot tell whether
-    # dropping the manager is allowed.
+    # when the Containerfile is rebased. Without it, a Fedora major rebase in
+    # the Containerfile silently leaves the example pointing at the old major
+    # until someone reads the FROM line by hand, and a contributor editing
+    # renovate.json cannot tell whether dropping the manager is allowed.
     config_out="$(config "import re; ms=[m for m in d['customManagers'] if m.get('customType')=='regex' and any('build/' in p and '.example' in p for p in m.get('managerFilePatterns',[]))]; print('FOUND' if any('fedora-ostree-desktops' in s for s in ms[0]['matchStrings']) else 'MISSING')")"
     [ "${config_out}" = "FOUND" ]
 }

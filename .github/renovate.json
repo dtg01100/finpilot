@@ -26,7 +26,7 @@
     },
     {
       "customType": "regex",
-      "description": "Keep the Fedora base image major in build example FROM comments in step with the Containerfile's FROM line. The regex matches a `#   FROM quay.io/fedora-ostree-desktops/<name>:<major>` line in build/*.sh.example so Renovate bumps the example alongside the Containerfile's pin. The built-in dockerfile manager skips the file because the FROM there is a comment, not an instruction. Major crossings still wait for a human — they are never automerged — and the major-disable rule for quay.io/fedora-ostree-desktops/* would propagate here through matchDepNames too.",
+      "description": "Keep the Fedora base image major in build example FROM comments in step with the Containerfile's FROM line. The regex matches a `#   FROM quay.io/fedora-ostree-desktops/<name>:<major>` line in build/*.sh.example so Renovate bumps the example alongside the Containerfile's pin. The built-in dockerfile manager skips the file because the FROM there is a comment, not an instruction. Major crossings still wait for a human — they are never automerged, since the last packageRule below matches `matchUpdateTypes: ['major']` and sets `automerge: false` regardless of how the manager's updateType resolves.",
       "managerFilePatterns": ["/^build/[^/]+\\.sh\\.example$/"],
       "matchStrings": [
         "(?:^|\\n)#\\s+FROM\\s+(?<packageName>quay\\.io/fedora-ostree-desktops/[a-z0-9-]+):(?<currentValue>\\d+)\\n"
