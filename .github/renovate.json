@@ -68,6 +68,12 @@
       "enabled": false
     },
     {
+      "description": "The build example FROM comments carry a bare major tag with no digest to replace, so disable the docker:pinDigests preset from config:best-practices for them; otherwise every run emits a pinDigest update that cannot be applied.",
+      "matchManagers": ["custom.regex"],
+      "matchFileNames": ["build/*.sh.example"],
+      "pinDigests": false
+    },
+    {
       "description": "A major crossing always waits for a human — never automerge one. Last matching rule wins, so keep this rule last.",
       "matchUpdateTypes": ["major"],
       "automerge": false

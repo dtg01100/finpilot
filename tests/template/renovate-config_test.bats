@@ -19,8 +19,7 @@ setup() {
 }
 
 config() {
-    # _filed escape=tests or _filed escape=tests bypasses BATS's strict-mode
-    # test names and just runs python3 inline.
+    # Load the renovate config as `d` and run the given Python statements.
     python3 -c "import json,sys; d=json.load(open('${CONFIG}')); ${*}"
 }
 
@@ -74,14 +73,9 @@ config() {
     # order and applies the last match, so a single rule that matches
     # matchUpdateTypes: ["major"] with automerge: true would silently let a
     # 44 -> 45 (or any other) jump land without review.
-    config_out="$(config "[print(r.get('matchUpdateTypes'), r.get('automerge'), r.get('enabled')) for r in d['packageRules']]")"
-    while IFS= read -r line; do
-        if [[ "${line}" == *"['major']"* ]]; then
-            # Either automerge is explicitly false, or enabled is false, or
-            # matchUpdateTypes includes major with no automerge key (the rule
-            # only sets automerge, so absence of an automerge: true alongside
-            # a major match is enough to pass).
-            [[ "${line}" == *"False"* || "${line}" == *"None"* ]]
-        fi
-    done < <(echo "${config_out}")
+    run config "bad=[r for r in d['packageRules'] if 'major' in r.get('matchUpdateTypes',[]) and r.get('automerge') is True]; print(bad); sys.exit(1 if bad else 0)"
+    [ "${status}" -eq 0 ] || {
+        echo "packageRules automerging a major: ${output}" >&2
+        return 1
+    }
 }
