@@ -49,7 +49,18 @@ jobs:
           sudo install -m 0755 /tmp/just /usr/local/bin/just
           just --version
       - name: Install bats
-        run: sudo apt-get update && sudo apt-get install -y bats
+        # A bare `apt-get update` against the runner image's stock sources can
+        # hang on a slow mirror long enough to trip the 10-minute job timeout
+        # (issue #497 — cancelled at the Install bats step while retrying
+        # azure.archive.ubuntu.com). Per-mirror timeouts bound the wait so a
+        # stuck host fails fast; --no-install-recommends skips bats-doc;
+        # -qq keeps the log readable.
+        run: |
+          sudo apt-get update -qq \
+            -o Acquire::http::Timeout=30 \
+            -o Acquire::https::Timeout=30 \
+            -o Acquire::Retries=2
+          sudo apt-get install -y --no-install-recommends bats
       - name: Run unit tests
         # `just test-unit` is the single definition of how the suite runs.
         run: just test-unit
