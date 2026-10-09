@@ -110,10 +110,13 @@ guard back is one rule — `matchManagers: ["github-actions"]` with
 
 ## Apt mirror resilience
 
-The `unit-tests.yml` `Install bats` step runs `apt-get update` against the
-runner image's stock Ubuntu mirrors. A slow mirror can leave apt waiting past
-the 10-minute job timeout, cancelling a run whose diff cannot have caused the
+The `unit-tests.yml` `Install bats` step runs `apt-get` against the runner
+image's stock Ubuntu mirrors. A slow mirror can leave apt waiting past the
+10-minute job timeout, cancelling a run whose diff cannot have caused the
 stall (issue #497, observed on PR #492 head 5769c24, job 112944421448). The
-step passes `-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o
-Acquire::Retries=2` so a stuck host fails fast, and `--no-install-recommends`
-to skip the `bats-doc` package the workflow never reads.
+step fronts both `apt-get update` and `apt-get install` with `timeout 180`,
+passes `-o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 -o
+Acquire::Retries=2` to each so a stalled socket fails fast from either
+half, and `--no-install-recommends` to skip the `bats-doc` package the
+workflow never reads. The wall-clock cap is what catches a slow-but-alive
+mirror; the per-call timeouts only fire on inactivity.
