@@ -205,6 +205,19 @@ origin_tree() {
 	[ "$(git_q "${CLONE}" rev-parse "origin/${PROMOTION_BRANCH}")" = "${before}" ]
 }
 
+@test "repair: exits cleanly when there is no promotion branch" {
+	# main and stable already match, so the reusable built no branch. That is
+	# the ordinary daily no-op and must not fail the run.
+	clone_repo
+
+	run_repair
+	[ "$status" -eq 0 ]
+	[[ "$output" == *"No ${PROMOTION_BRANCH} to repair"* ]]
+
+	run git_q "${CLONE}" ls-remote --exit-code --heads origin "${PROMOTION_BRANCH}"
+	[ "$status" -ne 0 ]
+}
+
 @test "promote: every job names the same promotion branch" {
 	# repair, locate and unblock each hardcode the branch the reusable derives
 	# from source_branch/target_branch. Three copies of one name drift silently:
